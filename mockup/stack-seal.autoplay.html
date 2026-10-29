@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T02 Stack Seal — six code cells stack into one seal</title>
+<link rel="stylesheet" href="_shared/nocturne.css">
+<style>
+  #stage{background:radial-gradient(ellipse 60% 55% at 50% 46%,#0D0F16 0%,var(--void) 70%)}
+  .card{position:absolute;left:330px;top:110px;width:780px;height:520px;z-index:2;overflow:visible;
+    background:linear-gradient(180deg,#10121A 0%,#0C0D13 100%);border:1px solid var(--line);border-radius:24px;
+    box-shadow:0 60px 120px -40px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.02) inset;transition:border-color .5s,box-shadow .6s}
+  .card.ok{border-color:rgba(63,224,208,.45);box-shadow:0 60px 120px -40px rgba(0,0,0,.8),0 0 70px -10px rgba(63,224,208,.28),0 0 0 1px rgba(63,224,208,.12) inset}
+  .card .hud-corners{inset:-12px;transition:opacity .4s}
+  .glowclip{position:absolute;inset:0;border-radius:24px;overflow:hidden;pointer-events:none}
+  .glow{position:absolute;left:390px;top:272px;width:900px;height:900px;margin:-450px 0 0 -450px;border-radius:50%;
+    background:radial-gradient(circle,rgba(63,224,208,.30) 0%,rgba(63,224,208,.10) 35%,transparent 65%);opacity:0;transform:scale(.1)}
+
+  .head{position:absolute;left:0;right:0;top:50px;text-align:center}
+  .kicker{font:500 14px var(--f-mono);letter-spacing:.2em;color:var(--text-3);text-transform:uppercase}
+  .titlewrap{position:relative;height:56px;margin-top:14px;overflow:hidden}
+  .title{position:absolute;left:0;right:0;top:0;font:600 46px/56px var(--f-text);letter-spacing:-.02em;will-change:transform}
+  .title.ok-t{color:var(--ion)}
+  .rel{display:inline-flex;align-items:center;gap:12px;margin-top:16px;height:38px;padding:0 16px;border-radius:999px;
+    background:rgba(255,255,255,.035);border:1px solid var(--line-2);font:500 18px var(--f-mono);letter-spacing:.06em;color:var(--text-2);transition:border-color .4s,color .4s}
+  .rel b{color:var(--text);font-weight:500}
+  .rel .env{color:var(--pulse-soft);transition:color .4s}
+  .rel .dot{width:8px;height:8px;border-radius:50%;background:var(--pulse);box-shadow:0 0 10px var(--pulse);transition:background .4s,box-shadow .4s}
+  .card.ok .rel{border-color:rgba(63,224,208,.35)}
+  .card.ok .rel .dot{background:var(--ion);box-shadow:0 0 10px var(--ion)}
+  .card.ok .rel .env{color:var(--ion)}
+
+  .row{position:absolute;left:0;right:0;top:220px;height:104px;display:flex;justify-content:center;gap:14px}
+  .cell{position:relative;width:88px;height:104px;border-radius:16px;border:1.5px solid var(--line-2);background:#11131B;
+    display:flex;align-items:center;justify-content:center;font:600 54px var(--f-display);color:var(--text);
+    transition:border-color .2s,box-shadow .25s,background .2s;will-change:transform}
+  .cell .d{display:block;transition:opacity .2s}
+  .cell.focus{border-color:var(--pulse);background:rgba(124,108,255,.08);box-shadow:0 0 0 5px rgba(124,108,255,.16),0 0 34px -4px rgba(124,108,255,.55)}
+  .cell.focus.empty::after{content:"";position:absolute;left:50%;top:26px;width:3px;height:52px;margin-left:-1.5px;border-radius:2px;background:var(--pulse-pale);animation:caret 1s steps(1) infinite}
+  @keyframes caret{50%{opacity:0}}
+  .cell.filled{border-color:rgba(255,255,255,.28)}
+  .cell.pop .d{animation:pop .3s var(--ease-back)}
+  @keyframes pop{from{transform:translateY(10px) scale(.7);opacity:0}to{transform:none;opacity:1}}
+  .cell.err{border-color:var(--flare);color:var(--flare);background:rgba(255,122,69,.06);box-shadow:0 0 0 5px rgba(255,122,69,.12)}
+  .row.shake{animation:shake .42s}
+  @keyframes shake{15%{transform:translateX(-16px)}35%{transform:translateX(13px)}55%{transform:translateX(-9px)}75%{transform:translateX(5px)}}
+  #code{position:absolute;left:91px;top:220px;width:598px;height:104px;opacity:0;z-index:3;cursor:text;caret-color:transparent;border:0;outline:0}
+  #code:focus-visible ~ .row .cell.focus{outline:2px solid var(--pulse-pale);outline-offset:4px}
+
+  /* authenticator hint (anchored under the first cell) */
+  .hint{position:absolute;left:91px;top:342px;z-index:4;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 14px;border-radius:12px;
+    background:rgba(26,27,36,.96);border:1px solid rgba(124,108,255,.45);box-shadow:0 18px 40px -16px rgba(0,0,0,.9),0 0 24px -8px rgba(124,108,255,.5);
+    font:500 20px var(--f-mono);letter-spacing:.04em;color:var(--text-2);white-space:nowrap;cursor:pointer;
+    opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .3s var(--ease-out),border-color .2s;pointer-events:none}
+  .hint::before{content:"";position:absolute;left:36px;top:-7px;width:12px;height:12px;background:rgba(26,27,36,.96);border-left:1px solid rgba(124,108,255,.45);border-top:1px solid rgba(124,108,255,.45);transform:rotate(45deg)}
+  .hint.show{opacity:1;transform:none;pointer-events:auto}
+  .hint.li-hover,.hint:hover{border-color:var(--pulse)}
+  .hint b{color:var(--text);font-weight:500;font-size:25px;letter-spacing:.12em}
+  .hint .totp{width:28px;height:28px;flex:none}
+  .hint .totp circle{fill:none;stroke-width:3}
+  .hint .lbl{color:var(--pulse-soft)}
+
+  /* verification bar */
+  .verify{position:absolute;left:91px;top:348px;width:598px;height:3px;border-radius:2px;background:rgba(124,108,255,.14);overflow:hidden;opacity:0;transition:opacity .2s}
+  .verify i{position:absolute;top:0;bottom:0;width:38%;border-radius:2px;background:linear-gradient(90deg,transparent,var(--pulse),var(--pulse-pale),var(--pulse),transparent);left:-40%}
+  .verify.on{opacity:1}.verify.on i{animation:scan .62s linear infinite}
+  @keyframes scan{to{left:102%}}
+
+  .foot{position:absolute;left:0;right:0;top:430px;text-align:center;font:500 15px var(--f-mono);letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;transition:opacity .3s,color .3s}
+  .foot.okf{color:var(--text-2);font-size:17px;top:452px}
+  .foot.err{color:var(--flare);font:600 30px var(--f-display);letter-spacing:.06em;top:418px}
+
+  /* seal */
+  .seal{position:absolute;left:390px;top:272px;width:0;height:0;z-index:5;pointer-events:none}
+  .sq{position:absolute;left:-44px;top:-52px;width:88px;height:104px;border-radius:16px;border:2px solid rgba(255,255,255,.55);background:#141621;opacity:0;
+    display:flex;align-items:center;justify-content:center}
+  .sq.ion{border-color:var(--ion);background:rgba(63,224,208,.10);box-shadow:0 0 60px rgba(63,224,208,.45),0 0 0 1px rgba(63,224,208,.3) inset;transition:border-color .3s,background .3s,box-shadow .4s}
+  .sq svg path{stroke:var(--ion);stroke-width:9;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100;stroke-dashoffset:100}
+  .ring{position:absolute;left:-74px;top:-74px;width:148px;height:148px;border-radius:34px;border:2px solid var(--ion);opacity:0;pointer-events:none}
+  .seal.wave .ring{animation:wave 1.1s var(--ease-out) forwards}.seal.wave .ring.r2{animation-delay:.18s}
+  @keyframes wave{from{transform:scale(1);opacity:.8}to{transform:scale(2.2);opacity:0}}
+
+  /* shipping line below the card */
+  .ship{position:absolute;left:330px;top:660px;width:780px;z-index:2;opacity:0;transform:translateY(12px)}
+  .ship .top{display:flex;justify-content:space-between;align-items:baseline;font:500 28px var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+  .ship .top .pct{font:600 40px var(--f-display);letter-spacing:.04em;color:var(--text-2)}
+  .ship .lab{display:flex;align-items:center;gap:12px}
+  .ship .lab i{width:10px;height:10px;border-radius:50%;background:var(--pulse);box-shadow:0 0 12px var(--pulse)}
+  .ship.done .lab{color:var(--ion)}.ship.done .lab i{background:var(--ion);box-shadow:0 0 12px var(--ion)}.ship.done .pct{color:var(--ion)}
+  .ship .bar{position:relative;margin-top:12px;height:10px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden}
+  .ship .bar b{position:absolute;left:0;top:0;bottom:0;width:100%;border-radius:4px;background:linear-gradient(90deg,var(--pulse) 0%,#5C9CF0 50%,var(--ion) 100%);transform-origin:0 50%;transform:scaleX(0);box-shadow:0 0 18px rgba(63,224,208,.5)}
+  .ship .sub{margin-top:12px;font:500 16px var(--f-mono);letter-spacing:.12em;color:var(--text-3);text-transform:uppercase}
+  /* payoff: the seal's Ion light floods the whole screen */
+  .flood{position:absolute;left:720px;top:382px;width:2400px;height:2400px;margin:-1200px 0 0 -1200px;border-radius:50%;z-index:1;pointer-events:none;opacity:0;transform:scale(.05);
+    background:radial-gradient(circle,rgba(63,224,208,.6) 0%,rgba(63,224,208,.4) 18%,rgba(63,224,208,.2) 36%,rgba(63,224,208,.07) 54%,transparent 70%)}
+  .shock{position:absolute;left:720px;top:382px;width:160px;height:160px;margin:-80px 0 0 -80px;border-radius:50%;z-index:6;pointer-events:none;opacity:0;
+    border:3px solid rgba(63,224,208,.9);box-shadow:0 0 40px rgba(63,224,208,.7),0 0 40px rgba(63,224,208,.5) inset}
+  .card.ok .glowclip{background:radial-gradient(ellipse 60% 55% at 50% 52%,rgba(63,224,208,.10),transparent 70%)}
+</style>
+</head>
+<body>
+<div id="stage" class="grid" data-title="T02 Stack Seal" data-url="veraetogrex-portfolio.github.io/releases/orb-14">
+  <div class="flood" id="flood"></div><div class="shock" id="shock"></div>
+  <div class="card" id="card">
+    <div class="hud-corners"></div>
+    <div class="glowclip"><div class="glow" id="glow"></div></div>
+    <div class="head">
+      <div class="kicker">Veraetogrex · Release gate</div>
+      <div class="titlewrap"><div class="title" id="title">Confirm deploy to production</div><div class="title ok-t" id="title2" style="transform:translateY(60px)">Deploy confirmed</div></div>
+      <div class="rel" id="rel"><span class="dot"></span><b>ORB-14</b> · v1.0.3 → <span class="env">prod</span></div>
+    </div>
+    <input id="code" inputmode="numeric" autocomplete="off" maxlength="6" aria-label="Six-digit authenticator code">
+    <div class="row" id="row"><div class="cell"><span class="d"></span></div><div class="cell"><span class="d"></span></div><div class="cell"><span class="d"></span></div><div class="cell"><span class="d"></span></div><div class="cell"><span class="d"></span></div><div class="cell"><span class="d"></span></div></div>
+    <div class="hint" id="hint" role="button" tabindex="-1" title="Fill from authenticator">
+      <svg class="totp" viewBox="0 0 28 28"><circle cx="14" cy="14" r="11" stroke="rgba(124,108,255,.25)"/><circle id="totp" cx="14" cy="14" r="11" stroke="#7C6CFF" stroke-dasharray="69.1" stroke-dashoffset="20" transform="rotate(-90 14 14)" stroke-linecap="round"/></svg>
+      <span class="lbl">Authenticator</span><span>·</span><b>482 913</b>
+    </div>
+    <div class="verify" id="verify"><i></i></div>
+    <div class="foot" id="foot">Code from your authenticator app</div>
+
+    <div class="seal" id="seal">
+      <div class="ring"></div><div class="ring r2"></div>
+      <div class="sq" id="sq"><svg width="80" height="80" viewBox="0 0 76 76"><path d="M18 40 L32 53 L59 24" pathLength="100"/></svg></div>
+    </div>
+  </div>
+
+  <div class="ship" id="ship">
+    <div class="top"><span class="lab"><i></i><span id="shipLab">Shipping v1.0.3</span></span><span class="pct" id="pct">0%</span></div>
+    <div class="bar"><b id="bar"></b></div>
+    <div class="sub" id="shipSub">eu-west · us-east · ap-south</div>
+  </div>
+
+  <div class="status-line"><span>Veraetogrex · T02</span><span>Deploy gate · 2FA</span></div>
+</div>
+
+<script>window.AUTOPLAY = true;</script>
+<script src="_shared/stage.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const cells = [...document.querySelectorAll('.row .cell')];
+const digs = cells.map(c => c.querySelector('.d'));
+const input = $('#code'), row = $('#row'), hint = $('#hint'), verifyBar = $('#verify'), foot = $('#foot');
+const card = $('#card'), title = $('#title'), title2 = $('#title2'), seal = $('#seal'), sq = $('#sq'), glow = $('#glow');
+const ship = $('#ship'), bar = $('#bar'), pct = $('#pct'), shipLab = $('#shipLab'), shipSub = $('#shipSub');
+const flood = $('#flood'), shock = $('#shock');
+const CODE = '482913';
+const N = 6, PITCH = 102;           // 88 cell + 14 gap
+let busy = false, flow = null;
+
+function render(v, focus = true) {
+  cells.forEach((c, i) => {
+    const had = digs[i].textContent;
+    digs[i].textContent = v[i] || '';
+    c.classList.toggle('filled', !!v[i]);
+    c.classList.toggle('empty', !v[i]);
+    c.classList.toggle('focus', focus && i === Math.min(v.length, N - 1) && v.length < N);
+    if (!had && v[i]) { c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
+  });
+}
+
+function reset() {
+  busy = false; flow = null;
+  input.value = ''; render('', false);
+  cells.forEach(c => { c.classList.remove('err', 'pop'); c.style.transform = ''; c.style.opacity = ''; c.style.zIndex = ''; c.style.borderColor = ''; });
+  digs.forEach(d => d.style.opacity = '');
+  row.classList.remove('shake'); row.style.opacity = '';
+  hint.classList.remove('show'); hint.style.opacity = '';
+  verifyBar.classList.remove('on');
+  foot.textContent = 'Code from your authenticator app'; foot.classList.remove('err', 'okf'); foot.style.opacity = 1;
+  card.classList.remove('ok'); card.style.opacity = '';
+  title.style.transform = ''; title.style.opacity = ''; title2.style.transform = 'translateY(60px)'; title2.style.opacity = '';
+  seal.classList.remove('wave'); seal.style.opacity = '';
+  sq.className = 'sq'; sq.style.cssText = ''; sq.querySelector('path').style.strokeDashoffset = 100;
+  glow.style.opacity = 0; glow.style.transform = 'scale(.1)';
+  ship.style.opacity = 0; ship.style.transform = 'translateY(12px)'; ship.classList.remove('done');
+  bar.style.transform = 'scaleX(0)'; pct.textContent = '0%'; shipLab.textContent = 'Shipping v1.0.3'; shipSub.textContent = 'eu-west · us-east · ap-south';
+  document.querySelector('.hud-corners').style.opacity = '';
+  flood.style.opacity = 0; flood.style.transform = 'scale(.05)'; shock.style.opacity = 0; shock.style.width = shock.style.height = ''; shock.style.margin = '';
+}
+
+// ---------- interactive input ----------
+input.addEventListener('input', () => {
+  if (busy) { input.value = input.value.slice(0, N); return; }
+  input.value = input.value.replace(/\D/g, '').slice(0, N);
+  if (foot.classList.contains('err')) { foot.classList.remove('err'); foot.textContent = 'Code from your authenticator app'; }
+  cells.forEach(c => c.classList.remove('err'));
+  render(input.value);
+  if (input.value.length === N) flow = verify(Stage.ctx(), input.value);
+});
+input.addEventListener('focus', () => { if (busy) return; render(input.value); hint.classList.add('show'); });
+input.addEventListener('blur', () => { cells.forEach(c => c.classList.remove('focus')); });
+input.addEventListener('keydown', e => { if (e.key === 'Escape') input.blur(); });
+hint.addEventListener('pointerdown', e => e.preventDefault());       // keep focus in the code field
+hint.addEventListener('click', () => { if (!busy) flow = autofill(Stage.ctx()); });
+// after a confirmed deploy, a click on the card starts over (interactive only)
+card.addEventListener('click', () => { if (!Stage.playing && !busy && card.classList.contains('ok')) Stage.reset(); });
+
+async function autofill(s) {
+  busy = true; input.focus({ preventScroll: true });
+  for (let i = 1; i <= N; i++) { input.value = CODE.slice(0, i); render(input.value); await s.wait(110); }
+  busy = false;
+  await verify(s, CODE);
+}
+
+// ---------- the seal ----------
+async function verify(s, value) {
+  busy = true;
+  input.blur(); cells.forEach(c => c.classList.remove('focus'));
+  const good = value === CODE;
+  // A — checking bar under the cells
+  hint.classList.remove('show');
+  verifyBar.classList.add('on');
+  foot.style.opacity = 0;
+  await s.wait(450);
+  verifyBar.classList.remove('on');
+
+  const dx = cells.map((c, i) => (i - (N - 1) / 2) * PITCH);
+  if (!good) {
+    // stack refuses to close: cells lean in, spring back, shake
+    await s.tween(260, t => cells.forEach((c, i) => c.style.transform = `translateX(${-dx[i] * .22 * t}px) scale(${1 - .05 * t})`), s.ease.out);
+    await s.tween(300, t => cells.forEach((c, i) => c.style.transform = `translateX(${-dx[i] * .22 * (1 - t)}px) scale(${.95 + .05 * t})`), s.ease.outBack);
+    cells.forEach(c => { c.style.transform = ''; c.classList.add('err'); });
+    row.classList.remove('shake'); void row.offsetWidth; row.classList.add('shake');
+    foot.textContent = 'Code expired'; foot.classList.add('err'); foot.style.opacity = 1;
+    await s.wait(900);
+    input.value = ''; render('', false); cells.forEach(c => c.classList.remove('err'));
+    busy = false; input.focus({ preventScroll: true });
+    return false;
+  }
+
+  // B — cells slide to the centre one after another, each landing on top of the previous one
+  const LAND = 380, STAG = 60;
+  cells.forEach((c, i) => c.style.zIndex = 10 + i);
+  const t0 = performance.now();
+  await s.tween(LAND + STAG * (N - 1), (_, p) => {
+    const el = p * (LAND + STAG * (N - 1));
+    cells.forEach((c, i) => {
+      const q = s.clamp((el - i * STAG) / LAND), e = s.ease.inOut(q);
+      const lift = Math.sin(Math.PI * q) * -26;                     // small hop while travelling
+      const stackY = -i * 3;                                         // stack thickness
+      c.style.transform = `translate(${-dx[i] * e}px,${lift + stackY * e}px) rotate(${(i % 2 ? 4 : -4) * Math.sin(Math.PI * q)}deg) scale(${1 - .04 * e})`;
+      digs[i].style.opacity = 1 - s.clamp(q * 1.6);
+      c.style.borderColor = `rgba(${s.lerp(255,124,e)|0},${s.lerp(255,108,e)|0},255,${.3 + .5 * e})`;
+    });
+  }, s.ease.linear);
+  // C — the stack squeezes into one square
+  sq.style.opacity = 1;
+  await s.tween(260, t => {
+    cells.forEach((c, i) => { c.style.transform = `translate(${-dx[i]}px,${-i * 3 * (1 - t)}px) scale(${.96})`; c.style.opacity = 1 - t; });
+    const w = s.lerp(88, 148, t), h = s.lerp(104, 148, t);
+    sq.style.width = w + 'px'; sq.style.height = h + 'px'; sq.style.left = -w / 2 + 'px'; sq.style.top = -h / 2 + 'px';
+    sq.style.borderRadius = s.lerp(16, 34, t) + 'px';
+  }, s.ease.in);
+  cells.forEach(c => c.style.opacity = 0);
+  await s.tween(180, t => { sq.style.transform = `scale(${1 + .08 * Math.sin(Math.PI * t)},${1 - .1 * Math.sin(Math.PI * t)})`; }, s.ease.out);
+  sq.style.transform = '';
+  // D — tick, Ion frame, new title, glow across the card
+  sq.classList.add('ion'); card.classList.add('ok'); seal.classList.add('wave');
+  s.tween(1300, t => { flood.style.transform = `scale(${.05 + .95 * s.ease.out(Math.min(1, t * 1.6))})`; flood.style.opacity = t < .12 ? t / .12 : 1 - .62 * (t - .12) / .88; }, s.ease.linear).catch(() => {});
+  s.tween(900, t => { shock.style.opacity = t < .08 ? t / .08 : (1 - t) / .92; const d = 160 + 2300 * t; shock.style.width = shock.style.height = d + 'px'; shock.style.margin = `${-d / 2}px 0 0 ${-d / 2}px`; }, s.ease.out).catch(() => {});
+  s.tween(900, t => { glow.style.opacity = t < .25 ? t / .25 : 1 - (t - .25) / .75 * .75; glow.style.transform = `scale(${.1 + .9 * t})`; }, s.ease.out).catch(() => {});
+  s.tween(420, t => { title.style.transform = `translateY(${-60 * t}px)`; title.style.opacity = 1 - t; title2.style.transform = `translateY(${60 * (1 - t)}px)`; }, s.ease.inOut).catch(() => {});
+  await s.tween(380, t => sq.querySelector('path').style.strokeDashoffset = 100 - 100 * t, s.ease.out);
+  foot.textContent = 'Approved by Mira Sato · 2FA · 14:02'; foot.classList.add('okf');
+  s.tween(260, t => foot.style.opacity = t, s.ease.out).catch(() => {});
+  await s.wait(200);
+  // E — shipping line under the card
+  await shipping(s);
+  busy = false;
+  return true;
+}
+
+async function shipping(s) {
+  await s.tween(300, t => { ship.style.opacity = t; ship.style.transform = `translateY(${12 * (1 - t)}px)`; }, s.ease.out);
+  const regions = ['eu-west', 'us-east', 'ap-south'];
+  await s.tween(1000, t => {
+    bar.style.transform = `scaleX(${t})`; pct.textContent = Math.round(t * 100) + '%';
+    const k = Math.min(2, Math.floor(t * 3));
+    shipSub.textContent = regions.map((r, i) => i < k || t >= 1 ? r + ' ✓' : i === k ? r + ' …' : r).join(' · ');
+  }, s.ease.inOut);
+  ship.classList.add('done'); shipLab.textContent = 'v1.0.3 is live';
+  shipSub.textContent = regions.map(r => r + ' ✓').join(' · ');
+  await s.wait(260);
+}
+
+// the last half second of the demo: dissolve back into the first frame
+async function backToStart(s) {
+  digs.forEach(d => { d.textContent = ''; d.style.opacity = ''; });
+  cells.forEach(c => { c.classList.remove('filled', 'pop'); c.classList.add('empty'); c.style.transform = 'scale(.9)'; c.style.opacity = 0; c.style.borderColor = ''; });
+  title.style.transform = 'translateY(60px)';
+  await s.tween(520, t => {
+    const o = 1 - t;
+    sq.style.opacity = o; sq.style.transform = `scale(${1 - .3 * t})`;
+    ship.style.opacity = o; ship.style.transform = `translateY(${10 * t}px)`;
+    flood.style.opacity = .38 * o;
+    title2.style.transform = `translateY(${-60 * t}px)`; title2.style.opacity = o;
+    title.style.transform = `translateY(${60 * (1 - t)}px)`; title.style.opacity = t;
+    cells.forEach((c, i) => { const q = s.clamp(t * 1.4 - i * .06); c.style.opacity = q; c.style.transform = `scale(${.9 + .1 * q})`; });
+    if (t < .5) foot.style.opacity = 1 - 2 * t;
+    else { if (foot.classList.contains('okf')) { foot.classList.remove('okf'); foot.textContent = 'Code from your authenticator app'; } foot.style.opacity = 2 * t - 1; }
+  }, s.ease.inOut);
+  card.classList.remove('ok');
+  reset();
+}
+
+Stage.init({
+  reset,
+  cursorStart: [720, 590],
+  async demo(s) {
+    await s.wait(60);
+    await s.click(input, { ms: 340, dx: -255 });          // first cell → Pulse frame + hint (≈0.5 s)
+    s.move([760, 600], 700, { arc: .15 }).catch(() => {});
+    await s.type(input, CODE, { cps: 4.6, jitter: .12 });  // 0.5–2.0
+    await flow;                                            // check · stack · seal · ship ≈ 2.0–5.6
+    await s.wait(80);
+    s.move([720, 590], 460).catch(() => {});
+    await backToStart(s);                                  // 5.6–6.2
+  },
+});
+</script>
+</body>
+</html>
