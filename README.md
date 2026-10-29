@@ -2,7 +2,7 @@
 
 **Six digits. One seal.**
 
-![Stack Seal preview](preview.jpg)
+![Stack Seal preview](preview.gif)
 
 **Live demo:** [veraetogrex-portfolio.github.io/stack-seal](https://veraetogrex-portfolio.github.io/stack-seal/) · **Mockup:** [full-screen version](https://veraetogrex-portfolio.github.io/stack-seal/mockup/stack-seal.html)
 
